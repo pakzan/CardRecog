@@ -6,11 +6,13 @@ import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.text.format.Time;
 import android.util.Log;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -30,26 +32,16 @@ import org.opencv.core.Rect;
 import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-import org.opencv.imgproc.CLAHE;
 import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.sql.Time;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 
-import static org.opencv.imgproc.Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C;
-import static org.opencv.imgproc.Imgproc.ADAPTIVE_THRESH_MEAN_C;
-import static org.opencv.imgproc.Imgproc.THRESH_BINARY;
 import static org.opencv.imgproc.Imgproc.boundingRect;
 
 public class MainActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2{
@@ -59,7 +51,13 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     BaseLoaderCallback baseLoaderCallback;
     ImageView imageView, imageView2;
     TextView textView;
+    EditText ipText;
     Button button;
+
+    static String storeSuit = "";
+    static String storeRank = "";
+    static long lastTime;
+    final int updateFreq = 1000;
 
     static {
         if (!OpenCVLoader.initDebug())
@@ -72,13 +70,15 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        imageView = (ImageView) findViewById(R.id.imageView);
-        imageView2 = (ImageView) findViewById(R.id.imageView2);
-        textView = (TextView) findViewById(R.id.text1);
-        button = (Button) findViewById(R.id.button);
+        imageView = findViewById(R.id.imageView);
+        imageView2 = findViewById(R.id.imageView2);
+        textView = findViewById(R.id.text1);
+        ipText = findViewById(R.id.ipText);
+        button = findViewById(R.id.button);
+
+        lastTime = System.currentTimeMillis();
 
         cameraBridgeViewBase = (JavaCameraView) findViewById(R.id.myCameraView);
         cameraBridgeViewBase.setVisibility(SurfaceView.VISIBLE);
@@ -367,11 +367,25 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                                 runOnUiThread(new Runnable() //run on ui thread
                                 {
                                     public void run() {
-                                    //if no matched card, output empty string
-                                    if(TextUtils.isEmpty(SRank) || TextUtils.isEmpty(SSuit))
-                                        textView.setText("");
-                                    else
-                                        textView.setText(SRank + " " + SSuit);
+                                        //if no matched card, output empty string
+                                        if(TextUtils.isEmpty(SRank) || TextUtils.isEmpty(SSuit))
+                                            textView.setText("");
+                                        else {
+                                            textView.setText(SRank + " " + SSuit);
+
+                                            //send card info to server
+                                            // make sure the detected values are stable for 1 second before update
+                                            if (!storeRank.equals(SRank) || !storeSuit.equals(SSuit)) {
+                                                storeRank = SRank;
+                                                storeSuit = SSuit;
+                                                lastTime = System.currentTimeMillis();
+                                            }
+                                            //send info after values stable for 1 second
+                                            if (System.currentTimeMillis() - lastTime > updateFreq) {
+                                                storeCardInfo(new CardInfo(SRank, SSuit), ipText.getText().toString());
+                                                lastTime = System.currentTimeMillis();
+                                            }
+                                        }
                                     }
                                 });
                             }
@@ -410,4 +424,13 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             cameraBridgeViewBase.disableView();
     }
 
+
+    private void storeCardInfo(CardInfo cardInfo, String ipAddress){
+        ServerRequests serverRequests = new ServerRequests(this);
+        serverRequests.storeCardInfoInBackground(cardInfo, ipAddress, new GetCallback() {
+            @Override
+            public void done() {
+            }
+        });
+    }
 }

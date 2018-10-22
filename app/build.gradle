@@ -24,6 +24,7 @@ android {
             path 'build/intermediates/ndk/debug/Android.mk'
         }
     }
+    useLibrary 'org.apache.http.legacy'
 }
 
 dependencies {
