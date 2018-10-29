@@ -11,6 +11,6 @@ Working Principle:
 4. Compare the Rank and Suit with the pre-stored images and find the most similar one.
 5. Display the results.
 
-A note for myself: 
-Content in \app\build will change after "Clean Project" or "Rebuild Project". 
+A note for myself:  
+Content in \app\build will change after "Clean Project" or "Rebuild Project".  
 Remember to copy \app\libs\arm64-v8a\libapp.so and paste it into \app\build\intermediates\ndkBuild\release\obj\local\arm64-v8a after performing that operation.
