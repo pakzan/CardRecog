@@ -1,8 +1,12 @@
 package com.example.tpz.cardrecog;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Environment;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -66,11 +70,25 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             Log.d("SUCCESS", "OpenCV loaded");
     }
 
+    private void checkPermission(String permission_type){
+        if (ContextCompat.checkSelfPermission(getApplicationContext(),
+                permission_type)
+                != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(MainActivity.this,
+                new String[]{permission_type},
+                0);
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        checkPermission(Manifest.permission.CAMERA);
+        checkPermission(Manifest.permission.INTERNET);
 
         imageView = findViewById(R.id.imageView);
         imageView2 = findViewById(R.id.imageView2);
@@ -83,9 +101,6 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         cameraBridgeViewBase = (JavaCameraView) findViewById(R.id.myCameraView);
         cameraBridgeViewBase.setVisibility(SurfaceView.VISIBLE);
         cameraBridgeViewBase.setCvCameraViewListener(this);
-
-        //set camera size
-
 
         baseLoaderCallback = new BaseLoaderCallback(this) {
             @Override
@@ -199,6 +214,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             @Override
             public void onClick(View v) {
                 try{
+                    checkPermission(Manifest.permission.CAMERA);
                     saveImage(tmp[0]);
                 }catch (Exception e){
 

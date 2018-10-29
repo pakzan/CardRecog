@@ -21,17 +21,17 @@ import java.util.ArrayList;
  */
 public class ServerRequests {
 
-    ProgressDialog progressDialog;
-    public static final int CONNECTION_TIMEOUT = 1000 * 15;
+    private ProgressDialog progressDialog;
+    private static final int CONNECTION_TIMEOUT = 1000 * 2;
 
-    public ServerRequests(Context context){
+    ServerRequests(Context context){
         progressDialog = new ProgressDialog(context);
         progressDialog.setCancelable(false);
         progressDialog.setTitle("Processing");
         progressDialog.setMessage("Please wait...");
     }
 
-    public void storeCardInfoInBackground(CardInfo cardInfo, String ipAddress, GetCallback cardInfoCallback){
+    void storeCardInfoInBackground(CardInfo cardInfo, String ipAddress, GetCallback cardInfoCallback){
         progressDialog.show();
         new storeCardInfoAsyncTask(cardInfo, ipAddress, cardInfoCallback).execute();
     }
@@ -41,7 +41,7 @@ public class ServerRequests {
         CardInfo cardInfo;
         GetCallback callback;
 
-        public storeCardInfoAsyncTask(CardInfo cardInfo, String ipAddress, GetCallback callback){
+        storeCardInfoAsyncTask(CardInfo cardInfo, String ipAddress, GetCallback callback){
             this.ipAddress = ipAddress;
             this.cardInfo = cardInfo;
             this.callback = callback;
