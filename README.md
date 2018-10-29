@@ -1,7 +1,7 @@
 # CardRecog
 This Android App recognises poker card and displays its Rank and Suit.
 
-This Program requires Android OpenCV to be installed.
+This Program requires Android OpenCV to be installed.  
 Download and install \app\release\app-release.apk into your phone to test it.
 
 Working Principle:
