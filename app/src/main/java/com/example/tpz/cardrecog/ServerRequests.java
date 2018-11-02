@@ -22,7 +22,7 @@ import java.util.ArrayList;
 public class ServerRequests {
 
     private ProgressDialog progressDialog;
-    private static final int CONNECTION_TIMEOUT = 1000 * 2;
+    private static final int CONNECTION_TIMEOUT = 500;
 
     ServerRequests(Context context){
         progressDialog = new ProgressDialog(context);

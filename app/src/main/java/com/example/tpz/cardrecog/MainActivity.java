@@ -36,6 +36,7 @@ import org.opencv.core.Rect;
 import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
+import org.opencv.imgproc.CLAHE;
 import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
@@ -44,13 +45,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 import static org.opencv.imgproc.Imgproc.boundingRect;
 
 public class MainActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2{
 
-    CameraBridgeViewBase cameraBridgeViewBase;
+    JavaCamResView cameraBridgeViewBase;
     Mat mat;
     BaseLoaderCallback baseLoaderCallback;
     ImageView imageView, imageView2;
@@ -98,9 +100,11 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
         lastTime = System.currentTimeMillis();
 
-        cameraBridgeViewBase = (JavaCameraView) findViewById(R.id.myCameraView);
+        cameraBridgeViewBase = findViewById(R.id.myCameraView);
         cameraBridgeViewBase.setVisibility(SurfaceView.VISIBLE);
         cameraBridgeViewBase.setCvCameraViewListener(this);
+        //front camera
+        cameraBridgeViewBase.setCameraIndex(1);
 
         baseLoaderCallback = new BaseLoaderCallback(this) {
             @Override
@@ -152,11 +156,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
         double maxArea = 0;
         MatOfPoint max_contour = null;
 
-        Iterator<MatOfPoint> iterator = contours.iterator();
-        while (iterator.hasNext()){
-            MatOfPoint contour = iterator.next();
+        for (MatOfPoint contour : contours) {
             double area = Imgproc.contourArea(contour);
-            if(area > maxArea){
+            if (area > maxArea) {
                 maxArea = area;
                 max_contour = contour;
             }
@@ -182,7 +184,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             //resize Mat to fit assets images
             Size size = new Size(assetMaT.height(), assetMaT.width());
             Imgproc.resize(currMat, sizedMat, size);
-            Core.rotate(sizedMat, sizedMat, Core.ROTATE_90_CLOCKWISE);
+            Core.rotate(sizedMat, sizedMat, Core.ROTATE_90_COUNTERCLOCKWISE);
             //add border to image
 //            Core.copyMakeBorder(sizedMat, sizedMat, border, border, border, border, Core.BORDER_REPLICATE);
 
@@ -199,16 +201,19 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
             Double matchPer = Imgproc.matchShapes(getMaxContour(assetMaT), getMaxContour(sizedMat), Imgproc.CV_CONTOURS_MATCH_I3, 0);
 
             Log.d("total_diff", image_name + "     " + String.valueOf(matchPer));
+            tmp[0] = sizedMat;
 
+            //debug
+            showImage(diffMat, imageView2);
             //get the most similar image in pixel and shape
-            if (matchPixel < min_diff_pixel){
+            if (matchPixel < min_diff_pixel + (images_path.equals("Rank") ? 0 : 0)){
                 min_diff_pixel = matchPixel;
 //                min_diff_per = matchPer;
                 min_diff_str = image_name;
-                tmp[0] = sizedMat;
                 //debug
                 showImage(diffMat, imageView2);
             }
+            inputstream.close();
         }
         button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -216,11 +221,12 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                 try{
                     checkPermission(Manifest.permission.CAMERA);
                     saveImage(tmp[0]);
-                }catch (Exception e){
+                }catch (Exception ignored){
 
                 }
             }
         });
+
         return min_diff_str.replace(".jpg", "");
     }
 
@@ -273,8 +279,9 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 //                    new Scalar(partition * (i + 1), partition * (i + 1), partition * (i + 1)), filter[i]);
 //            Core.bitwise_or(filter_combined, filter[i], filter_combined);
 //        }
-//
+
         Imgproc.cvtColor(mat, mat, Imgproc.COLOR_RGBA2GRAY);
+
 //        //completely convert to grey
 //        Core.bitwise_xor(mat, filter_combined, mat);
         Imgproc.GaussianBlur(mat, mat, new Size(1,1), 0);
@@ -283,64 +290,86 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 //        Imgproc.adaptiveThreshold(mat, mat, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 15, 40);
 
         //debug
-        showImage(mat, imageView);
+//        Mat cropMat = new Mat(mat, new Rect(280, 320, 150, 100));
+//        Imgproc.line(cropMat, new Point(0,99), new Point(149,99), new Scalar(255, 255, 255));
+
+        Mat cropMat = new Mat(mat, new Rect(280, 250, 150, 300));
+//        Imgproc.line(cropMat, new Point(0,199), new Point(149,199), new Scalar(0, 0, 0));
 
         //find largest contour
-        MatOfPoint max_contour = getMaxContour(mat);
+        MatOfPoint max_contour = getMaxContour(cropMat);
+
 
         //check if max_contour exists
         if(max_contour != null){
             //draw a polynomial around the contour
-            double epsilon = 0.02*Imgproc.arcLength(new MatOfPoint2f(max_contour.toArray()),true);
+
+            double epsilon = 0.002*Imgproc.arcLength(new MatOfPoint2f(max_contour.toArray()),true);
             MatOfPoint2f approx = new MatOfPoint2f();
+
             Imgproc.approxPolyDP(new MatOfPoint2f(max_contour.toArray()),approx,epsilon,true);
 
+
             //if found rectangle shape(card), continue stuff
-            if(approx.toArray().length == 4) {
+            if(approx.toArray().length >= 4) {
                 RotatedRect rect = Imgproc.minAreaRect(approx);
 
                 //draw rotated rectangle
-                Point points[] = approx.toArray();
-//                rect.points(points);
+                Point[] points = new Point[4];
+                rect.points(points);
                 for (int i = 0; i < 4; ++i) {
-                    Imgproc.line(mat, points[i], points[(i + 1) % 4], new Scalar(255, 255, 255));
+                    Imgproc.line(cropMat, points[i], points[(i + 1) % 4], new Scalar(255, 255, 255));
                 }
-
                 //adjust the orientation of the card
-                double width01 = Math.sqrt(Math.pow(points[0].x - points[1].x, 2) + Math.pow(points[0].y - points[1].y, 2));
-                double height12 = Math.sqrt(Math.pow(points[2].x - points[1].x, 2) + Math.pow(points[2].y - points[1].y, 2));
-                double width23 = Math.sqrt(Math.pow(points[2].x - points[3].x, 2) + Math.pow(points[2].y - points[3].y, 2));
-                double height30 = Math.sqrt(Math.pow(points[0].x - points[3].x, 2) + Math.pow(points[0].y - points[3].y, 2));
-
-                double total_width, total_height;
-                if(Math.abs(height12 - height30) > Math.abs(width01 - width23)){
-                    total_width = (width01 + width23) * (Math.max(height12, height30)/Math.min(height12, height30));
-                    total_height = 2 * Math.max(height12, height30);
-                }else{
-                    total_width = 2 * Math.max(width01, width23);
-                    total_height = (height12 + height30) * (Math.max(width01, width23)/Math.min(width01, width23));
-                }
-
-                //rotate card
-                if (total_width > total_height) {
-                    Point tmpPoint = points[3];
-                    points[3] = points[2];
-                    points[2] = points[1];
-                    points[1] = points[0];
-                    points[0] = tmpPoint;
-                }
+//                double width01 = Math.sqrt(Math.pow(points[0].x - points[1].x, 2) + Math.pow(points[0].y - points[1].y, 2));
+//                double height12 = Math.sqrt(Math.pow(points[2].x - points[1].x, 2) + Math.pow(points[2].y - points[1].y, 2));
+//                double width23 = Math.sqrt(Math.pow(points[2].x - points[3].x, 2) + Math.pow(points[2].y - points[3].y, 2));
+//                double height30 = Math.sqrt(Math.pow(points[0].x - points[3].x, 2) + Math.pow(points[0].y - points[3].y, 2));
+//
+//                double total_width, total_height;
+//                if(Math.abs(height12 - height30) > Math.abs(width01 - width23)){
+//                    total_width = (width01 + width23) * (Math.max(height12, height30)/Math.min(height12, height30));
+//                    total_height = 2 * Math.max(height12, height30);
+//                }else{
+//                    total_width = 2 * Math.max(width01, width23);
+//                    total_height = (height12 + height30) * (Math.max(width01, width23)/Math.min(width01, width23));
+//                }
 
                 //input rectangle real size
                 MatOfPoint2f dst = new MatOfPoint2f(
+                        new Point(0, 250),
                         new Point(0, 0),
-                        new Point(0, 719),
-                        new Point(809, 719),
-                        new Point(809, 0)
+                        new Point(150, 0),
+                        new Point(150, 250)
                 );
+                //rotate card
+                if (points[0].x > points[2].x) {
+                    Point tmpPoint = points[0];
+                    points[0] = points[1];
+                    points[1] = points[2];
+                    points[2] = points[3];
+                    points[3] = tmpPoint;
+
+                    // rotating image
+                    double angle = Math.atan((points[3].y - points[0].y)/(points[3].x-points[0].x));
+                    Point center = new Point(cropMat.width() / 2, cropMat.height() / 2);
+                    Mat rotMatrix = Imgproc.getRotationMatrix2D(center, angle, 1);
+                    Imgproc.warpAffine(cropMat, cropMat, rotMatrix, cropMat.size());
+
+                    //input rectangle real size
+                    long height = Math.round(rect.size.height/1+angle);
+                    dst = new MatOfPoint2f(
+                            new Point(0, height),
+                            new Point(0, 0),
+                            new Point(150, 0),
+                            new Point(150, height)
+                    );
+                }
+
                 //get transform perspective of polynomial to rectangle
                 Mat warpMat = Imgproc.getPerspectiveTransform(new MatOfPoint2f(points), dst);
                 //transform polynomial to rectangle
-                Imgproc.warpPerspective(mat, mat, warpMat, mat.size());
+                Imgproc.warpPerspective(cropMat, cropMat, warpMat, cropMat.size());
 
                 //draw cropped image for better visualization
 //                Imgproc.rectangle(mat, new Point(0, 604), new Point(141, 719), new Scalar(255, 255, 255));
@@ -348,34 +377,46 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
 
                 //crop upper left of the card
                 //invert black and white
-                Mat cropMat = new Mat(mat, new Rect(0, 604, 227, 115));
+//                Mat cropMat = new Mat(mat, new Rect(0, 604, 227, 115));
+//                Mat cropMat = new Mat(mat, new Rect(100
+//                        , 0, 400, 200));
+//            cropMat = new Mat(cropMat, boundingRect(max_contour));
+
+            if (cropMat.height() > 90) {
+
                 Core.bitwise_not(cropMat, cropMat);
 
                 //get rank and suit from cropped image
-                Mat Rank = new Mat(cropMat, new Rect(0, 0, 141, 115));
-                Mat Suit = new Mat(cropMat, new Rect(86, 0, 141, 115));
+                //                Mat Rank = new Mat(cropMat, new Rect(0, 0, 141, 115));
+                //                Mat Suit = new Mat(cropMat, new Rect(86, 0, 141, 115));
 
+                float suitRatio = 0.35f;
+                int suitWid = Math.round(cropMat.width() * suitRatio);
+                Mat Rank = new Mat(cropMat, new Rect(suitWid - 1, 20, cropMat.width() - suitWid, 70));
+                Mat Suit = new Mat(cropMat, new Rect(0, 20, suitWid, 70));
 
                 //crop rank and suit once more to fit the image
                 MatOfPoint tempRank = getMaxContour(Rank);
+                MatOfPoint tempSuit = getMaxContour(Suit);
 
                 if (tempRank != null) {
                     //crop rank
                     Rank = new Mat(Rank, boundingRect(tempRank));
                 }
 
-                //crop suit
-                MatOfPoint tempSuit = getMaxContour(Suit);
                 if (tempSuit != null)
+                    //crop suit
                     Suit = new Mat(Suit, boundingRect(tempSuit));
+                showImage(Rank, imageView);
 
                 //match suit
                 if (tempRank != null && tempSuit != null) {
                     final String SRank, SSuit;
+
                     try {
                         SRank = getCardType(Rank, "Rank");
-                        SSuit = getCardType(Suit, "Suit");
-
+//                        SSuit = getCardType(Suit, "Suit");
+                        SSuit = "Suit";
                         //print result to textview
                         Thread thread = new Thread() {
                             @Override
@@ -384,7 +425,7 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                                 {
                                     public void run() {
                                         //if no matched card, output empty string
-                                        if(TextUtils.isEmpty(SRank) || TextUtils.isEmpty(SSuit))
+                                        if (TextUtils.isEmpty(SRank) || TextUtils.isEmpty(SSuit))
                                             textView.setText("");
                                         else {
                                             textView.setText(SRank + " " + SSuit);
@@ -407,11 +448,15 @@ public class MainActivity extends AppCompatActivity implements CameraBridgeViewB
                             }
                         };
                         thread.start();
+
+
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }
             }
+                }
+//            }
 
         }
         return mat;

@@ -6,13 +6,11 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <org.opencv.android.JavaCameraView
+    <com.example.tpz.cardrecog.JavaCamResView
         android:id="@+id/myCameraView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        app:show_fps="true"
-        tools:layout_editor_absoluteX="0dp"
-        tools:layout_editor_absoluteY="36dp" />
+        app:show_fps="true" />
 
 
     <EditText
@@ -22,7 +20,7 @@
         android:layout_marginEnd="8dp"
         android:layout_marginTop="8dp"
         android:inputType="text"
-        android:text="http://172.20.12.254:5000/card_info"
+        android:text="http://192.168.1.101:5000/card_info"
         android:textColor="@android:color/holo_green_light"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
